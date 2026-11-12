@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="id" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NzTimer - Speedcubing Timer & Standard 2D/3D Library</title>
+    
+    <!-- Meta Mobile / Android App Ready -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#020617">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js for 3D Visualizer -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .font-timer {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 9999px;
+        }
+        .touch-timer-area {
+            touch-action: none;
+        }
+        #cube3dContainer canvas {
+            touch-action: none;
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-brand-500 selection:text-white">
+
+    <!-- FULLSCREEN INVISIBLE HITBOX OVERLAY (ACTIVE WHEN TIMER IS RUNNING) -->
+    <div id="fullScreenStopOverlay" class="fixed inset-0 z-40 hidden touch-none cursor-pointer bg-transparent"></div>
+
+    <!-- Header Navigation -->
+    <header id="mainHeader" class="w-full bg-slate-900/90 backdrop-blur border-b border-slate-800/80 px-3 sm:px-4 py-2.5 transition-all z-30 sticky top-0">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+            <div class="flex items-center space-x-3 sm:space-x-6 w-full sm:w-auto justify-between sm:justify-start">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+                        <i class="fa-solid fa-cube text-slate-950 font-bold text-lg"></i>
+                    </div>
+                    <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                        Nz<span class="text-brand-400">Timer</span>
+                    </span>
+                </div>
+
+                <nav class="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+                    <button id="navTimerTab" onclick="switchMainTab('timer')" class="px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 bg-brand-500 text-white shadow">
+                        <i class="fa-solid fa-stopwatch"></i>
+                        <span>Timer</span>
+                    </button>
+                    <button id="navAlgoTab" onclick="switchMainTab('algos')" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-book-open"></i>
+                        <span class="hidden sm:inline">Rumus 2D (PLL & OLL)</span>
+                        <span class="sm:hidden">Rumus</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Scrollable Controls for Small Android Screens -->
+            <div id="headerTimerControls" class="flex items-center space-x-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none text-xs">
+                <div class="flex items-center space-x-1.5 text-slate-400 shrink-0">
+                    <select id="eventSelect" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-brand-500 transition cursor-pointer">
+                        <option value="333">3x3x3 Cube</option>
+                        <option value="222">2x2x2 Cube</option>
+                        <option value="444">4x4x4 Cube</option>
+                        <option value="pyram">Pyraminx</option>
+                    </select>
+                </div>
+
+                <div class="h-4 w-px bg-slate-800 shrink-0"></div>
+
+                <label class="flex items-center space-x-1.5 cursor-pointer bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 px-2.5 py-1.5 rounded-lg transition shrink-0">
+                    <input type="checkbox" id="inspectionToggle" class="sr-only peer">
+                    <div class="w-6 h-3.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-brand-500 relative"></div>
+                    <span class="text-slate-300 select-none text-[11px]">15s Insp</span>
+                </label>
+
+                <label class="flex items-center space-x-1.5 cursor-pointer bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 px-2.5 py-1.5 rounded-lg transition shrink-0">
+                    <input type="checkbox" id="bldToggle" class="sr-only peer">
+                    <div class="w-6 h-3.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-brand-500 relative"></div>
+                    <span class="text-slate-300 select-none text-[11px]">BLD Mode</span>
+                </label>
+
+                <button id="clearSessionBtn" class="px-2.5 py-1.5 bg-slate-800 hover:bg-rose-950/50 hover:text-rose-400 hover:border-rose-800/50 border border-slate-700 rounded-lg text-slate-400 transition flex items-center space-x-1 shrink-0" title="Clear session">
+                    <i class="fa-solid fa-trash-can text-[11px]"></i>
+                    <span class="text-[11px]">Clear</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- SECTION 1: TIMER WORKSPACE (CENTERED LAYOUT) -->
+    <main id="timerView" class="flex-1 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-4 gap-4 p-3 sm:p-5 items-stretch relative">
+        
+        <!-- SIDEBAR (3D PREVIEW, STATS, HISTORY) -->
+        <div id="timerSidebar" class="order-2 lg:order-1 lg:col-span-1 space-y-3 pointer-events-auto z-10 flex flex-col justify-between">
+            <!-- 3D Scramble Visualizer -->
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3 backdrop-blur shadow-xl relative">
+                <div class="flex items-center justify-between mb-1.5">
+                    <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-cube text-brand-400"></i>
+                        <span>3D Scramble Preview</span>
+                    </h3>
+                    <span class="text-[9px] text-slate-500 italic">Drag 360°</span>
+                </div>
+                
+                <div id="cube3dContainer" class="w-full h-44 sm:h-48 bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80 cursor-grab active:cursor-grabbing relative flex items-center justify-center">
+                    <!-- Three.js Canvas Inject -->
+                </div>
+
+                <!-- Fast View Controls for Mobile/Android -->
+                <div class="flex items-center justify-between gap-1 mt-2 pt-2 border-t border-slate-800/60 text-[10px]">
+                    <div class="flex items-center space-x-1">
+                        <button onclick="setCubeAngle('iso')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition" title="Reset View">
+                            <i class="fa-solid fa-compass"></i>
+                        </button>
+                        <button onclick="setCubeAngle('front')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 font-mono font-bold transition">F</button>
+                        <button onclick="setCubeAngle('top')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 font-mono font-bold transition">U</button>
+                        <button onclick="setCubeAngle('back')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 font-mono font-bold transition">B</button>
+                    </div>
+
+                    <button id="toggleAutoRotateBtn" onclick="toggleAutoRotate()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-brand-400 rounded border border-slate-700/60 transition flex items-center space-x-1">
+                        <i class="fa-solid fa-arrows-spin"></i>
+                        <span class="text-[9px]">Auto</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3 backdrop-blur shadow-xl">
+                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span>Statistics</span>
+                    <i class="fa-solid fa-chart-simple text-brand-400 text-xs"></i>
+                </h3>
+                <div class="grid grid-cols-3 lg:grid-cols-2 gap-2">
+                    <div class="bg-slate-950/50 border border-slate-800 p-2 rounded-xl">
+                        <div class="text-[9px] text-slate-400 uppercase tracking-wider">Solves</div>
+                        <div id="statSolves" class="text-base font-bold text-slate-200 font-timer">0</div>
+                    </div>
+                    <div class="bg-slate-950/50 border border-slate-800 p-2 rounded-xl">
+                        <div class="text-[9px] text-slate-400 uppercase tracking-wider">PB</div>
+                        <div id="statBest" class="text-base font-bold text-emerald-400 font-timer">--</div>
+                    </div>
+                    <div class="bg-slate-950/50 border border-slate-800 p-2 rounded-xl">
+                        <div class="text-[9px] text-slate-400 uppercase tracking-wider">Mo3</div>
+                        <div id="statMo3" class="text-base font-bold text-slate-200 font-timer">--</div>
+                    </div>
+                    <div class="bg-slate-950/50 border border-slate-800 p-2 rounded-xl">
+                        <div class="text-[9px] text-slate-400 uppercase tracking-wider">Best Ao5</div>
+                        <div id="statBestAo5" class="text-base font-bold text-brand-400 font-timer">--</div>
+                    </div>
+                    <div class="bg-slate-950/50 border border-slate-800 p-2 rounded-xl">
+                        <div class="text-[9px] text-slate-400 uppercase tracking-wider">Ao5</div>
+                        <div id="statAo5" class="text-base font-bold text-slate-200 font-timer">--</div>
+                    </div>
+                    <div class="bg-slate-950/50 border border-slate-800 p-2 rounded-xl">
+                        <div class="text-[9px] text-slate-400 uppercase tracking-wider">Ao12</div>
+                        <div id="statAo12" class="text-base font-bold text-slate-200 font-timer">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3 backdrop-blur shadow-xl flex flex-col h-[180px] lg:h-[220px]">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                        <span>History</span>
+                        <span id="historyCountBadge" class="bg-slate-800 text-slate-300 text-[9px] px-1.5 py-0.2 rounded-full font-mono">0</span>
+                    </h3>
+                </div>
+                <div id="historyList" class="flex-1 overflow-y-auto space-y-1 pr-1">
+                    <div class="text-center text-slate-500 text-xs py-4 italic">Belum ada solve.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTERED WORKSPACE (SCRAMBLE & DEAD-CENTER TIMER) -->
+        <div id="timerWorkspace" class="order-1 lg:order-2 lg:col-span-3 flex flex-col items-center justify-between min-h-[420px] sm:min-h-[500px] relative z-10 pointer-events-none">
+            
+            <!-- Scramble Top Box -->
+            <div id="scrambleBox" class="w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-5 text-center shadow-xl backdrop-blur relative group pointer-events-auto">
+                <div class="text-slate-400 text-[10px] font-semibold tracking-widest uppercase mb-1">Scramble</div>
+                <div id="scrambleDisplay" class="font-mono text-base sm:text-xl md:text-2xl font-bold tracking-wide text-slate-100 leading-relaxed min-h-[3rem] flex items-center justify-center px-2 select-text">
+                    Generating scramble...
+                </div>
+                <div class="flex justify-center items-center space-x-2.5 mt-2.5 pt-2.5 border-t border-slate-800/60">
+                    <button id="nextScrambleBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-rotate-right text-brand-400"></i>
+                        <span>New Scramble</span>
+                    </button>
+                    <button id="copyScrambleBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-copy text-slate-400"></i>
+                        <span>Copy</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- EXACT DEAD-CENTER TIMER CONTAINER -->
+            <div class="flex-1 flex flex-col items-center justify-center w-full my-auto py-8">
+                <div id="timerStatus" class="h-7 mb-2 flex items-center justify-center">
+                    <span class="text-[10px] sm:text-xs font-semibold tracking-wider uppercase px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400 transition-all duration-200">
+                        Tekan Space (PC) / Sentuh Angka (Android)
+                    </span>
+                </div>
+                <div id="bldPhaseDisplay" class="hidden text-xs sm:text-sm font-semibold tracking-widest text-amber-400 uppercase mb-2">
+                    Phase: MEMO
+                </div>
+                
+                <!-- RESPONSIVE DEAD-CENTER DISPLAY HITBOX -->
+                <div id="timerDisplay" class="touch-timer-area font-timer text-6xl sm:text-8xl md:text-9xl font-extrabold tracking-tight text-slate-100 transition-all duration-150 select-none drop-shadow-[0_10px_25px_rgba(0,0,0,0.6)] cursor-pointer pointer-events-auto px-6 sm:px-12 py-3 sm:py-6 rounded-3xl hover:bg-slate-900/40 border border-transparent hover:border-slate-800/60 my-auto text-center">
+                    0.000
+                </div>
+
+                <div id="lastSolveControls" class="opacity-0 pointer-events-none transition-all duration-300 mt-4 flex items-center space-x-2.5 bg-slate-900/90 border border-slate-800 rounded-full px-3.5 py-1.5 backdrop-blur shadow-xl pointer-events-auto">
+                    <span class="text-[11px] text-slate-400 font-medium">Last:</span>
+                    <button id="btnPenaltyPlus2" class="px-2.5 py-0.5 rounded-full text-xs font-semibold border border-amber-500/40 text-amber-400 hover:bg-amber-500/20 transition">
+                        +2
+                    </button>
+                    <button id="btnPenaltyDNF" class="px-2.5 py-0.5 rounded-full text-xs font-semibold border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 transition">
+                        DNF
+                    </button>
+                    <div class="h-3.5 w-px bg-slate-800"></div>
+                    <button id="btnDeleteLast" class="px-2 py-0.5 rounded-full text-xs font-semibold text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition" title="Delete last solve">
+                        <i class="fa-solid fa-trash text-[11px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom Quick Instruction -->
+            <div id="bottomInstruction" class="text-center text-[11px] text-slate-500">
+                <p class="hidden sm:block"><kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono text-[10px]">Spacebar</kbd> / Sentuh angka timer untuk bersiap & mulai.</p>
+                <p class="sm:hidden">Sentuh tepat pada angka timer untuk memulai.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- SECTION 2: ALGORITHMS REFERENCE -->
+    <main id="algosView" class="hidden flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 backdrop-blur shadow-xl">
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-cube text-brand-400"></i>
+                    <span>Katalog Panduan OLL & PLL</span>
+                </h1>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Visualisasi Rumus OLL & PLL Agar Mudah Diingat
+                </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button id="tabPLLBtn" onclick="switchAlgoCategory('PLL')" class="px-3 py-1 rounded-lg text-xs font-bold transition bg-brand-500 text-white shadow">
+                        PLL (21 Presisi)
+                    </button>
+                    <button id="tabOLLBtn" onclick="switchAlgoCategory('OLL')" class="px-3 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200 transition">
+                        OLL (57 Standard)
+                    </button>
+                </div>
+
+                <div class="relative flex-1 sm:flex-initial">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                    <input type="text" id="algoSearch" oninput="filterAlgorithms()" placeholder="Cari T Perm, Aa Perm, OLL 27..." class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl pl-8 pr-3 py-1.5 w-full sm:w-44 focus:outline-none focus:border-brand-500 transition">
+                </div>
+            </div>
+        </div>
+
+        <div id="algoGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </main>
+
+    <!-- Modal Confirm -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3">
+            <h4 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+                <span>Otw Ilang Semua nih Solve kalian</span>
+            </h4>
+            <p class="text-xs text-slate-300">Beneran nih mau mulai dari nol?</p>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button id="cancelModalBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition">Cancel</button>
+                <button id="confirmModalBtn" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 bg-slate-800 text-slate-100 border border-slate-700 px-4 py-2 rounded-xl shadow-2xl transition-all duration-300 flex items-center space-x-2 z-50 pointer-events-none">
+        <i class="fa-solid fa-circle-check text-brand-400 text-xs"></i>
+        <span id="toastMessage" class="text-xs font-medium">Notification</span>
+    </div>
+
+    <script>
+        const state = {
+            currentTab: 'timer',
+            algoCategory: 'PLL',
+            event: '333',
+            solves: [],
+            timerState: 'IDLE',
+            startTime: 0,
+            elapsedTime: 0,
+            timerInterval: null,
+            holdTimeout: null,
+            readyThresholdMs: 300,
+            inspectionEnabled: false,
+            inspectionTimeLeft: 15,
+            inspectionInterval: null,
+            bldMode: false,
+            bldMemoTime: 0,
+            bldPhase: 'NONE',
+            currentScramble: '',
+            autoRotate3D: true
+        };
+
+        const mainHeader = document.getElementById('mainHeader');
+        const fullScreenStopOverlay = document.getElementById('fullScreenStopOverlay');
+        const timerView = document.getElementById('timerView');
+        const timerSidebar = document.getElementById('timerSidebar');
+        const timerWorkspace = document.getElementById('timerWorkspace');
+        const scrambleBox = document.getElementById('scrambleBox');
+        const bottomInstruction = document.getElementById('bottomInstruction');
+        const algosView = document.getElementById('algosView');
+        const headerTimerControls = document.getElementById('headerTimerControls');
+        const navTimerTab = document.getElementById('navTimerTab');
+        const navAlgoTab = document.getElementById('navAlgoTab');
+
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timerStatus = document.getElementById('timerStatus');
+        const scrambleDisplay = document.getElementById('scrambleDisplay');
+        const historyList = document.getElementById('historyList');
+        const eventSelect = document.getElementById('eventSelect');
+        const inspectionToggle = document.getElementById('inspectionToggle');
+        const bldToggle = document.getElementById('bldToggle');
+        const bldPhaseDisplay = document.getElementById('bldPhaseDisplay');
+        const lastSolveControls = document.getElementById('lastSolveControls');
+        const btnPenaltyPlus2 = document.getElementById('btnPenaltyPlus2');
+        const btnPenaltyDNF = document.getElementById('btnPenaltyDNF');
+        const btnDeleteLast = document.getElementById('btnDeleteLast');
+
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmModalBtn = document.getElementById('confirmModalBtn');
+        const cancelModalBtn = document.getElementById('cancelModalBtn');
+
+        const statSolves = document.getElementById('statSolves');
+        const statBest = document.getElementById('statBest');
+        const statMo3 = document.getElementById('statMo3');
+        const statAo5 = document.getElementById('statAo5');
+        const statBestAo5 = document.getElementById('statBestAo5');
+        const statAo12 = document.getElementById('statAo12');
+        const historyCountBadge = document.getElementById('historyCountBadge');
+
+        const TIMER_CLASS_BASE = "touch-timer-area font-timer text-6xl sm:text-8xl md:text-9xl font-extrabold tracking-tight transition-all duration-150 select-none drop-shadow-[0_10px_25px_rgba(0,0,0,0.6)] cursor-pointer pointer-events-auto px-6 sm:px-12 py-3 sm:py-6 rounded-3xl border my-auto text-center ";
+        const TIMER_CLASS_ZEN = "touch-timer-area font-timer text-7xl sm:text-9xl md:text-[10rem] font-extrabold tracking-tight transition-all duration-150 select-none drop-shadow-[0_10px_35px_rgba(14,165,233,0.25)] cursor-pointer pointer-events-auto px-6 py-6 rounded-3xl border-transparent bg-transparent my-auto text-center ";
+
+        // Toggle Zen Mode (Hide all UI except timer & enable fullscreen touch)
+        function setZenMode(isZen) {
+            if (isZen) {
+                mainHeader.classList.add('hidden');
+                timerSidebar.classList.add('hidden');
+                scrambleBox.classList.add('hidden');
+                bottomInstruction.classList.add('hidden');
+                timerStatus.classList.add('hidden');
+                lastSolveControls.classList.add('hidden');
+                
+                timerWorkspace.classList.remove('lg:col-span-3');
+                timerWorkspace.classList.add('lg:col-span-4');
+                
+                fullScreenStopOverlay.classList.remove('hidden');
+            } else {
+                mainHeader.classList.remove('hidden');
+                timerSidebar.classList.remove('hidden');
+                scrambleBox.classList.remove('hidden');
+                bottomInstruction.classList.remove('hidden');
+                timerStatus.classList.remove('hidden');
+                lastSolveControls.classList.remove('hidden');
+                
+                timerWorkspace.classList.remove('lg:col-span-4');
+                timerWorkspace.classList.add('lg:col-span-3');
+                
+                fullScreenStopOverlay.classList.add('hidden');
+            }
+        }
+
+        function switchMainTab(tab) {
+            state.currentTab = tab;
+            if (tab === 'timer') {
+                timerView.classList.remove('hidden');
+                algosView.classList.add('hidden');
+                headerTimerControls.classList.remove('hidden');
+                navTimerTab.className = "px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 bg-brand-500 text-white shadow";
+                navAlgoTab.className = "px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5";
+            } else {
+                timerView.classList.add('hidden');
+                algosView.classList.remove('hidden');
+                if (headerTimerControls) headerTimerControls.classList.add('hidden');
+                navAlgoTab.className = "px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 bg-brand-500 text-white shadow";
+                navTimerTab.className = "px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5";
+                renderAlgorithmCards();
+            }
+        }
+
+        const MOVES = {
+            '333': ['U', 'D', 'L', 'R', 'F', 'B'],
+            '222': ['U', 'R', 'F'],
+            '444': ['U', 'D', 'L', 'R', 'F', 'B', 'Uw', 'Rw', 'Fw'],
+            'pyram': ['U', 'L', 'R', 'B']
+        };
+        const MODIFIERS = ['', "'", '2'];
+
+        function isOppositeFace(m1, m2) {
+            const pairs = [['U', 'D'], ['L', 'R'], ['F', 'B']];
+            return pairs.some(pair => (pair.includes(m1) && pair.includes(m2)));
+        }
+
+        function generateScramble(event = '333') {
+            const moveList = MOVES[event] || MOVES['333'];
+            const length = event === '222' ? 11 : event === 'pyram' ? 11 : event === '444' ? 36 : 21;
+            const scramble = [];
+            let lastMove = '';
+            let secondLastMove = '';
+
+            for (let i = 0; i < length; i++) {
+                let availableMoves = moveList.filter(m => {
+                    if (m === lastMove) return false;
+                    if (isOppositeFace(m, lastMove) && m === secondLastMove) return false;
+                    return true;
+                });
+                const chosenMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+                const chosenMod = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
+                scramble.push(chosenMove + chosenMod);
+                secondLastMove = lastMove;
+                lastMove = chosenMove;
+            }
+
+            if (event === 'pyram') {
+                const tips = ['u', 'l', 'r', 'b'];
+                tips.forEach(tip => {
+                    if (Math.random() > 0.4) {
+                        const mod = MODIFIERS[Math.floor(Math.random() * 2)];
+                        scramble.push(tip + mod);
+                    }
+                });
+            }
+
+            state.currentScramble = scramble.join(' ');
+            scrambleDisplay.textContent = state.currentScramble;
+
+            if (window.update3DScramble) {
+                window.update3DScramble(state.currentScramble, state.event);
+            }
+        }
+
+        function formatTime(ms, penalty = 0) {
+            if (penalty === 'DNF') return 'DNF';
+            let totalMs = ms + (penalty === 2 ? 2000 : 0);
+            const minutes = Math.floor(totalMs / 60000);
+            const seconds = Math.floor((totalMs % 60000) / 1000);
+            const milliseconds = Math.floor(totalMs % 1000);
+            const secStr = seconds.toString().padStart(minutes > 0 ? 2 : 1, '0');
+            const msStr = milliseconds.toString().padStart(3, '0');
+
+            if (minutes > 0) return `${minutes}:${secStr}.${msStr}`;
+            return `${secStr}.${msStr}`;
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            toastMsg.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2000);
+        }
+
+        function startTimer() {
+            if (state.timerState !== 'BLD_MEMO') {
+                state.timerState = 'RUNNING';
+            }
+            state.startTime = performance.now();
+            setZenMode(true);
+            timerDisplay.className = TIMER_CLASS_ZEN + 'text-brand-400';
+            state.timerInterval = requestAnimationFrame(updateTimerLoop);
+        }
+
+        function updateTimerLoop() {
+            if (state.timerState !== 'RUNNING' && state.timerState !== 'BLD_MEMO') return;
+            const now = performance.now();
+            state.elapsedTime = now - state.startTime;
+            timerDisplay.textContent = formatTime(state.elapsedTime);
+            state.timerInterval = requestAnimationFrame(updateTimerLoop);
+        }
+
+        function stopTimer() {
+            cancelAnimationFrame(state.timerInterval);
+            setZenMode(false);
+
+            let penalty = 0;
+            if (state.inspectionEnabled && state.inspectionTimeLeft <= 0) {
+                penalty = state.inspectionTimeLeft > -2 ? 2 : 'DNF';
+            }
+
+            const solve = {
+                id: Date.now(),
+                rawTime: state.elapsedTime,
+                penalty: penalty,
+                scramble: state.currentScramble,
+                timestamp: new Date().toISOString(),
+                event: state.event
+            };
+
+            if (state.bldMode) {
+                solve.memoTime = state.bldMemoTime;
+                bldPhaseDisplay.classList.add('hidden');
+                state.bldPhase = 'NONE';
+            }
+
+            state.timerState = 'IDLE';
+            state.solves.unshift(solve);
+            saveSolvesToStorage();
+            timerDisplay.textContent = formatTime(solve.rawTime, solve.penalty);
+            timerDisplay.className = TIMER_CLASS_BASE + 'text-slate-100 border-transparent hover:border-slate-800/60 hover:bg-slate-900/40';
+            updateStatusBadge('Tekan Spacebar / Sentuh Angka Timer', 'bg-slate-900 border-slate-800 text-slate-400');
+            updateStats();
+            renderHistory();
+            generateScramble(state.event);
+            showLastSolveControls();
+        }
+
+        function startInspection() {
+            state.timerState = 'INSPECTION';
+            state.inspectionTimeLeft = 15;
+            updateStatusBadge('Inspection Running', 'bg-amber-500/20 text-amber-400 border-amber-500/30');
+            timerDisplay.textContent = state.inspectionTimeLeft;
+            timerDisplay.className = TIMER_CLASS_BASE + 'text-amber-400 border-amber-500/30 bg-amber-500/5';
+
+            state.inspectionInterval = setInterval(() => {
+                state.inspectionTimeLeft--;
+                if (state.inspectionTimeLeft > 0) {
+                    timerDisplay.textContent = state.inspectionTimeLeft;
+                } else if (state.inspectionTimeLeft === 0 || state.inspectionTimeLeft === -1) {
+                    timerDisplay.textContent = '+2';
+                } else {
+                    timerDisplay.textContent = 'DNF';
+                    clearInterval(state.inspectionInterval);
+                }
+            }, 1000);
+        }
+
+        function stopInspection() {
+            clearInterval(state.inspectionInterval);
+        }
+
+        function handleKeyDown(e) {
+            if (state.currentTab !== 'timer') return;
+            if (e.repeat || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                triggerHoldStart();
+            } else if (state.timerState === 'RUNNING' || state.timerState === 'BLD_MEMO') {
+                triggerHoldStart();
+            }
+        }
+
+        function handleKeyUp(e) {
+            if (state.currentTab !== 'timer') return;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                triggerRelease();
+            }
+        }
+
+        function triggerHoldStart() {
+            if (state.timerState === 'RUNNING') {
+                stopTimer();
+                return;
+            }
+            if (state.timerState === 'BLD_MEMO') {
+                state.bldMemoTime = performance.now() - state.startTime;
+                state.timerState = 'RUNNING';
+                state.bldPhase = 'EXEC';
+                bldPhaseDisplay.textContent = 'Phase: EXECUTION';
+                bldPhaseDisplay.classList.remove('hidden');
+                state.startTime = performance.now();
+                return;
+            }
+            if (state.timerState === 'IDLE' || state.timerState === 'INSPECTION') {
+                if (state.inspectionEnabled && state.timerState === 'IDLE') {
+                    startInspection();
+                    return;
+                }
+                if (state.inspectionEnabled && state.timerState === 'INSPECTION') {
+                    stopInspection();
+                }
+                state.timerState = 'HOLDING';
+                timerDisplay.className = TIMER_CLASS_BASE + 'text-rose-500 border-rose-500/30 bg-rose-500/10 scale-95';
+                updateStatusBadge('Tahan terus...', 'bg-rose-500/20 text-rose-400 border-rose-500/30');
+
+                state.holdTimeout = setTimeout(() => {
+                    state.timerState = 'READY';
+                    timerDisplay.className = TIMER_CLASS_BASE + 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10 scale-100 shadow-emerald-500/20';
+                    updateStatusBadge('Lepaskan untuk mulai timing!', 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30');
+                }, state.readyThresholdMs);
+            }
+        }
+
+        function triggerRelease() {
+            if (state.timerState === 'HOLDING') {
+                clearTimeout(state.holdTimeout);
+                state.timerState = 'IDLE';
+                timerDisplay.className = TIMER_CLASS_BASE + 'text-slate-100 border-transparent hover:border-slate-800/60 hover:bg-slate-900/40';
+                updateStatusBadge('Tekan Spacebar / Sentuh Angka Timer', 'bg-slate-900 border-slate-800 text-slate-400');
+            } else if (state.timerState === 'READY') {
+                if (state.bldMode) {
+                    state.timerState = 'BLD_MEMO';
+                    state.bldPhase = 'MEMO';
+                    bldPhaseDisplay.textContent = 'Phase: MEMORIZATION';
+                    bldPhaseDisplay.classList.remove('hidden');
+                }
+                startTimer();
+            }
+        }
+
+        function setupTouchEvents() {
+            const handleStartPress = (e) => {
+                if (state.currentTab !== 'timer') return;
+                if (e.type === 'touchstart') e.preventDefault();
+                triggerHoldStart();
+            };
+
+            const handleReleasePress = (e) => {
+                if (state.currentTab !== 'timer') return;
+                triggerRelease();
+            };
+
+            // Touch events on timer number (to start)
+            timerDisplay.addEventListener('touchstart', handleStartPress, { passive: false });
+            timerDisplay.addEventListener('touchend', handleReleasePress, { passive: true });
+            timerDisplay.addEventListener('mousedown', handleStartPress);
+            timerDisplay.addEventListener('mouseup', handleReleasePress);
+
+            // Fullscreen touch events (to stop anywhere on screen)
+            fullScreenStopOverlay.addEventListener('touchstart', handleStartPress, { passive: false });
+            fullScreenStopOverlay.addEventListener('mousedown', handleStartPress);
+        }
+
+        function updateStatusBadge(text, classNames) {
+            timerStatus.innerHTML = `<span class="text-[10px] sm:text-xs font-semibold tracking-wider uppercase px-3 py-1 rounded-full border transition-all duration-200 ${classNames}">${text}</span>`;
+        }
+
+        function getEffectiveTime(solve) {
+            if (!solve || solve.penalty === 'DNF') return Infinity;
+            return solve.rawTime + (solve.penalty === 2 ? 2000 : 0);
+        }
+
+        function calculateMean(solvesList, count) {
+            if (solvesList.length < count) return null;
+            const targetSolves = solvesList.slice(0, count);
+            let sum = 0;
+            for (let s of targetSolves) {
+                const time = getEffectiveTime(s);
+                if (time === Infinity) return 'DNF';
+                sum += time;
+            }
+            return sum / count;
+        }
+
+        function calculateAverage(solvesList, count) {
+            if (solvesList.length < count) return null;
+            const targetSolves = solvesList.slice(0, count);
+            const times = targetSolves.map(getEffectiveTime);
+            const dnfCount = times.filter(t => t === Infinity).length;
+            if (dnfCount > 1) return 'DNF';
+
+            times.sort((a, b) => a - b);
+            const trimmed = times.slice(1, count - 1);
+            return trimmed.reduce((acc, t) => acc + t, 0) / trimmed.length;
+        }
+
+        function updateStats() {
+            const currentSolves = state.solves.filter(s => s.event === state.event);
+            statSolves.textContent = currentSolves.length;
+            historyCountBadge.textContent = currentSolves.length;
+
+            const validSolves = currentSolves.filter(s => s.penalty !== 'DNF');
+            statBest.textContent = validSolves.length > 0 ? formatTime(Math.min(...validSolves.map(s => getEffectiveTime(s)))) : '--';
+
+            const mo3 = calculateMean(currentSolves, 3);
+            statMo3.textContent = mo3 ? (typeof mo3 === 'number' ? formatTime(mo3) : 'DNF') : '--';
+
+            const ao5 = calculateAverage(currentSolves, 5);
+            statAo5.textContent = ao5 ? (typeof ao5 === 'number' ? formatTime(ao5) : 'DNF') : '--';
+
+            let bestAo5 = Infinity;
+            for (let i = 0; i <= currentSolves.length - 5; i++) {
+                const avg = calculateAverage(currentSolves.slice(i, i + 5), 5);
+                if (typeof avg === 'number' && avg < bestAo5) bestAo5 = avg;
+            }
+            statBestAo5.textContent = bestAo5 !== Infinity ? formatTime(bestAo5) : '--';
+
+            const ao12 = calculateAverage(currentSolves, 12);
+            statAo12.textContent = ao12 ? (typeof ao12 === 'number' ? formatTime(ao12) : 'DNF') : '--';
+        }
+
+        function renderHistory() {
+            const currentSolves = state.solves.filter(s => s.event === state.event);
+            if (currentSolves.length === 0) {
+                historyList.innerHTML = `<div class="text-center text-slate-500 text-xs py-4 italic">Belum ada solve.</div>`;
+                return;
+            }
+
+            historyList.innerHTML = currentSolves.map((solve, index) => {
+                const solveNum = currentSolves.length - index;
+                const formatted = formatTime(solve.rawTime, solve.penalty);
+                const isDnf = solve.penalty === 'DNF';
+                const isPlus2 = solve.penalty === 2;
+
+                return `
+                    <div class="bg-slate-950/40 hover:bg-slate-800/60 border border-slate-800/60 rounded-xl p-2 flex items-center justify-between text-xs transition group">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-slate-500 font-mono w-5 text-right text-[11px]">${solveNum}.</span>
+                            <span class="font-timer font-bold text-xs ${isDnf ? 'text-rose-400' : isPlus2 ? 'text-amber-400' : 'text-slate-100'}">
+                                ${formatted}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-1 opacity-90">
+                            <button onclick="togglePenalty(${solve.id}, 2)" class="px-1.5 py-0.5 rounded text-[9px] font-semibold ${isPlus2 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-amber-400'}">+2</button>
+                            <button onclick="togglePenalty(${solve.id}, 'DNF')" class="px-1.5 py-0.5 rounded text-[9px] font-semibold ${isDnf ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-rose-400'}">DNF</button>
+                            <button onclick="deleteSolve(${solve.id})" class="px-1 py-0.5 text-slate-500 hover:text-rose-400 transition" title="Delete">
+                                <i class="fa-solid fa-xmark text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function togglePenalty(solveId, penaltyType) {
+            const solve = state.solves.find(s => s.id === solveId);
+            if (!solve) return;
+            solve.penalty = solve.penalty === penaltyType ? 0 : penaltyType;
+            saveSolvesToStorage();
+            updateStats();
+            renderHistory();
+            updateLastSolveControlsUI();
+        }
+
+        function deleteSolve(solveId) {
+            state.solves = state.solves.filter(s => s.id !== solveId);
+            saveSolvesToStorage();
+            updateStats();
+            renderHistory();
+            updateLastSolveControlsUI();
+            showToast('Solve deleted');
+        }
+
+        function showLastSolveControls() {
+            if (state.solves.length > 0) {
+                lastSolveControls.classList.remove('opacity-0', 'pointer-events-none');
+                updateLastSolveControlsUI();
+            }
+        }
+
+        function updateLastSolveControlsUI() {
+            const currentSolves = state.solves.filter(s => s.event === state.event);
+            if (currentSolves.length === 0) {
+                lastSolveControls.classList.add('opacity-0', 'pointer-events-none');
+                return;
+            }
+            const lastSolve = currentSolves[0];
+            btnPenaltyPlus2.className = `px-2.5 py-0.5 rounded-full text-xs font-semibold border transition ${lastSolve.penalty === 2 ? 'bg-amber-500 text-slate-950 border-amber-500' : 'border-amber-500/40 text-amber-400 hover:bg-amber-500/20'}`;
+            btnPenaltyDNF.className = `px-2.5 py-0.5 rounded-full text-xs font-semibold border transition ${lastSolve.penalty === 'DNF' ? 'bg-rose-500 text-white border-rose-500' : 'border-rose-500/40 text-rose-400 hover:bg-rose-500/20'}`;
+        }
+
+        function saveSolvesToStorage() {
+            localStorage.setItem('nz_timer_solves', JSON.stringify(state.solves));
+        }
+
+        function loadSolvesFromStorage() {
+            const stored = localStorage.getItem('nz_timer_solves');
+            if (stored) {
+                try { state.solves = JSON.parse(stored); } catch (e) { console.error(e); }
+            }
+        }
+
+        function openConfirmModal() { confirmModal.classList.remove('opacity-0', 'pointer-events-none'); }
+        function closeConfirmModal() { confirmModal.classList.add('opacity-0', 'pointer-events-none'); }
+
+        // THREE.JS 3D VISUALIZER ENGINE (OPTIMIZED FOR ANDROID & MOBILE)
+        function init3DVisualizer() {
+            const container = document.getElementById('cube3dContainer');
+            if (!container) return;
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020617);
+
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(4, 3, 5);
+            camera.lookAt(0, 0, 0);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight1.position.set(5, 10, 7);
+            scene.add(dirLight1);
+
+            const cubeGroup = new THREE.Group();
+            scene.add(cubeGroup);
+
+            const FACE_MATERIALS = [
+                new THREE.MeshBasicMaterial({ color: 0xef4444 }), 
+                new THREE.MeshBasicMaterial({ color: 0xfb923c }), 
+                new THREE.MeshBasicMaterial({ color: 0xffffff }), 
+                new THREE.MeshBasicMaterial({ color: 0xfacc15 }), 
+                new THREE.MeshBasicMaterial({ color: 0x22c55e }), 
+                new THREE.MeshBasicMaterial({ color: 0x3b82f6 })  
+            ];
+            const INNER_MAT = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+            let cubies = [];
+
+            function buildCube(dim = 3) {
+                while(cubeGroup.children.length > 0) { 
+                    cubeGroup.remove(cubeGroup.children[0]); 
+                }
+                cubies = [];
+
+                const spacing = 1.02;
+                const offset = (dim - 1) / 2;
+
+                for (let x = 0; x < dim; x++) {
+                    for (let y = 0; y < dim; y++) {
+                        for (let z = 0; z < dim; z++) {
+                            const mats = [];
+                            mats.push(x === dim - 1 ? FACE_MATERIALS[0] : INNER_MAT);
+                            mats.push(x === 0 ? FACE_MATERIALS[1] : INNER_MAT);
+                            mats.push(y === dim - 1 ? FACE_MATERIALS[2] : INNER_MAT);
+                            mats.push(y === 0 ? FACE_MATERIALS[3] : INNER_MAT);
+                            mats.push(z === dim - 1 ? FACE_MATERIALS[4] : INNER_MAT);
+                            mats.push(z === 0 ? FACE_MATERIALS[5] : INNER_MAT);
+
+                            const geom = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+                            const mesh = new THREE.Mesh(geom, mats);
+
+                            mesh.position.set(
+                                (x - offset) * spacing,
+                                (y - offset) * spacing,
+                                (z - offset) * spacing
+                            );
+                            cubeGroup.add(mesh);
+                            cubies.push(mesh);
+                        }
+                    }
+                }
+                cubeGroup.rotation.set(0.4, -0.6, 0);
+            }
+
+            function applyScramble3D(scrambleStr, event) {
+                const dim = event === '222' ? 2 : event === '444' ? 4 : 3;
+                buildCube(dim);
+
+                if (event === 'pyram') return;
+
+                const moves = scrambleStr.split(' ');
+                const offset = (dim - 1) / 2;
+
+                moves.forEach(m => {
+                    if (!m) return;
+                    const face = m[0];
+                    const mod = m.slice(1);
+                    let angle = Math.PI / 2;
+                    if (mod === "'") angle = -Math.PI / 2;
+                    if (mod === "2") angle = Math.PI;
+
+                    let axis = new THREE.Vector3(0, 1, 0);
+                    let targetLayer = offset;
+
+                    if (face === 'U') { axis.set(0, 1, 0); targetLayer = offset; angle = -angle; }
+                    else if (face === 'D') { axis.set(0, 1, 0); targetLayer = -offset; }
+                    else if (face === 'R') { axis.set(1, 0, 0); targetLayer = offset; angle = -angle; }
+                    else if (face === 'L') { axis.set(1, 0, 0); targetLayer = -offset; }
+                    else if (face === 'F') { axis.set(0, 0, 1); targetLayer = offset; angle = -angle; }
+                    else if (face === 'B') { axis.set(0, 0, 1); targetLayer = -offset; }
+
+                    const rotMatrix = new THREE.Matrix4().makeRotationAxis(axis, angle);
+
+                    cubies.forEach(cubie => {
+                        let isTarget = false;
+                        const eps = 0.1;
+                        if (axis.x !== 0 && Math.abs(cubie.position.x - targetLayer) < eps) isTarget = true;
+                        if (axis.y !== 0 && Math.abs(cubie.position.y - targetLayer) < eps) isTarget = true;
+                        if (axis.z !== 0 && Math.abs(cubie.position.z - targetLayer) < eps) isTarget = true;
+
+                        if (isTarget) {
+                            cubie.position.applyMatrix4(rotMatrix);
+                            cubie.rotateOnWorldAxis(axis, angle);
+                        }
+                    });
+                });
+            }
+
+            // Smooth Drag Engine with Multi-touch Prevent
+            let isDragging = false;
+            let previousPointerPosition = { x: 0, y: 0 };
+
+            renderer.domElement.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                previousPointerPosition = { x: e.clientX, y: e.clientY };
+                renderer.domElement.setPointerCapture(e.pointerId);
+            });
+
+            renderer.domElement.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                const deltaMove = {
+                    x: e.clientX - previousPointerPosition.x,
+                    y: e.clientY - previousPointerPosition.y
+                };
+
+                cubeGroup.rotation.y += deltaMove.x * 0.012;
+                cubeGroup.rotation.x += deltaMove.y * 0.012;
+
+                previousPointerPosition = { x: e.clientX, y: e.clientY };
+            });
+
+            const handlePointerUp = (e) => {
+                if (isDragging) {
+                    isDragging = false;
+                    try { renderer.domElement.releasePointerCapture(e.pointerId); } catch(err) {}
+                }
+            };
+
+            renderer.domElement.addEventListener('pointerup', handlePointerUp);
+            renderer.domElement.addEventListener('pointercancel', handlePointerUp);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                if (!isDragging && state.autoRotate3D) {
+                    cubeGroup.rotation.y += 0.005;
+                }
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Resize Observer to handle dynamic container sizing on mobile screens
+            function resizeRenderer() {
+                if (!container || !renderer || !camera) return;
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                if (width === 0 || height === 0) return;
+                
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height, false);
+            }
+
+            const resizeObserver = new ResizeObserver(() => resizeRenderer());
+            resizeObserver.observe(container);
+
+            window.update3DScramble = (scrambleStr, event) => {
+                applyScramble3D(scrambleStr, event);
+            };
+
+            window.setCubeAngle = (type) => {
+                if (type === 'iso') cubeGroup.rotation.set(0.4, -0.6, 0);
+                else if (type === 'front') cubeGroup.rotation.set(0, 0, 0);
+                else if (type === 'top') cubeGroup.rotation.set(Math.PI / 2, 0, 0);
+                else if (type === 'back') cubeGroup.rotation.set(0, Math.PI, 0);
+            };
+
+            window.toggleAutoRotate = () => {
+                state.autoRotate3D = !state.autoRotate3D;
+                const btn = document.getElementById('toggleAutoRotateBtn');
+                if (btn) {
+                    if (state.autoRotate3D) {
+                        btn.className = "px-2 py-1 bg-slate-800 hover:bg-slate-700 text-brand-400 rounded border border-slate-700/60 transition flex items-center space-x-1";
+                    } else {
+                        btn.className = "px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-500 rounded border border-slate-700/60 transition flex items-center space-x-1 opacity-70";
+                    }
+                }
+            };
+        }
+
+        // =========================================================================
+        // FULL 21 PLL & FULL 57 OLL DATABASE
+        // WARNA: 2:Oranye (W), 3:Hijau (N), 4:Merah (S), 5:Biru (E)
+        // =========================================================================
+
+        const ALGORITHMS = {
+            PLL: [
+                { id: 'pll-aa', name: 'Aa Perm', group: 'Corners Only', mainAlgo: "x R' U R' D2 R U' R' D2 R2", guide: "Headlights di belakang, blok 1x2 di kiri.", borders: {N:[4,3,5], S:[2,5,5], W:[3,2,3], E:[2,4,4]} },
+                { id: 'pll-ab', name: 'Ab Perm', group: 'Corners Only', mainAlgo: "x' L2 D2 L U L' D2 L U' L", guide: "Headlights di belakang, blok 1x2 di kanan.", borders: {N:[2,3,3], S:[4,5,3], W:[5,2,5], E:[4,4,2,2]} },
+                { id: 'pll-e', name: 'E Perm', group: 'Corners Only', mainAlgo: "x' R U' R' D R U R' D' R U R' D R U' R' D'", guide: "Tidak ada headlights sama sekali di 4 sisi.", borders: {N:[2,3,4], S:[2,5,4], W:[5,2,3], E:[5,4,3]} },
+                { id: 'pll-t', name: 'T Perm', group: 'Adjacent Corner Swap', mainAlgo: "R U R' U' R' F R2 U' R' U' R U R' F'", guide: "Headlights di kiri, 2 blok 1x2 berhadapan.", borders: {N:[3,3,4], S:[5,5,4], W:[2,4,2], E:[5,2,3]} },
+                { id: 'pll-ja', name: 'Ja Perm', group: 'Adjacent Corner Swap', mainAlgo: "R' U L' U2 R U' R' U2 R L", guide: "Bar 1x3 utuh di sebelah kiri.", borders: {N:[3,4,4], S:[5,5,4], W:[2,2,2], E:[5,3,3]} },
+                { id: 'pll-jb', name: 'Jb Perm', group: 'Adjacent Corner Swap', mainAlgo: "R U R' F' R U R' U' R' F R2 U' R'", guide: "Bar 1x3 utuh di sebelah kanan.", borders: {N:[5,5,2], S:[3,2,2], W:[4,4,4], E:[3,3,5]} },
+                { id: 'pll-ra', name: 'Ra Perm', group: 'Adjacent Corner Swap', mainAlgo: "R U R' F' R U2 R' U2 R' F R U R U2 R'", guide: "Headlights di kiri, blok 1x2 di depan.", borders: {N:[4,3,5], S:[2,2,5], W:[3,4,3], E:[2,5,4]} },
+                { id: 'pll-rb', name: 'Rb Perm', group: 'Adjacent Corner Swap', mainAlgo: "R' U2 R U2 R' F R U R' U' R' F' R2", guide: "Headlights di kiri, blok 1x2 di belakang.", borders: {N:[5,5,2], S:[3,4,2], W:[4,3,4], E:[3,2,5]} },
+                { id: 'pll-f', name: 'F Perm', group: 'Adjacent Corner Swap', mainAlgo: "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R", guide: "Bar 1x3 utuh di depan.", borders: {N:[3,5,4], S:[5,3,4], W:[2,2,2], E:[5,4,3]} },
+                { id: 'pll-ua', name: 'Ua Perm', group: 'Edges Only', mainAlgo: "R U' R U R U R U' R' U' R2", guide: "Satu sisi solved di belakang, edge berputar counter-clockwise.", borders: {N:[3,3,3], S:[5,4,5], W:[2,5,2], E:[4,2,4]} },
+                { id: 'pll-ub', name: 'Ub Perm', group: 'Edges Only', mainAlgo: "R2 U R U R' U' R' U' R' U R'", guide: "Satu sisi solved di belakang, edge berputar clockwise.", borders: {N:[3,3,3], S:[5,2,5], W:[2,4,2], E:[4,5,4]} },
+                { id: 'pll-h', name: 'H Perm', group: 'Edges Only', mainAlgo: "M2 U M2 U2 M2 U M2", guide: "Opposite edge swap di semua sisi.", borders: {N:[3,5,3], S:[5,3,5], W:[2,4,2], E:[4,2,4]} },
+                { id: 'pll-z', name: 'Z Perm', group: 'Edges Only', mainAlgo: "M' U M2 U M2 U M' U2 M2", guide: "Adjacent edge swap di semua sisi.", borders: {N:[4,5,4], S:[2,3,2], W:[3,2,3], E:[5,4,5]} },
+                { id: 'pll-y', name: 'Y Perm', group: 'Diagonal Swap', mainAlgo: "F R U' R' U' R U R' F' R U R' U' R' F R F'", guide: "Corner diagonal swap, 2 blok 1x2 berseberangan.", borders: {N:[2,3,4], S:[2,2,4], W:[5,4,3], E:[5,5,3]} },
+                { id: 'pll-v', name: 'V Perm', group: 'Diagonal Swap', mainAlgo: "R' U R' U' R D' R' D R' E' R2 U' R2 U R2", guide: "Blok 2x2 solved di kiri depan.", borders: {N:[2,5,4], S:[2,2,4], W:[5,3,3], E:[5,4,3]} },
+                { id: 'pll-na', name: 'Na Perm', group: 'Diagonal Swap', mainAlgo: "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'", guide: "Dua baris 1x3 utuh berseberangan (kiri & kanan).", borders: {N:[3,3,5], S:[3,5,5], W:[2,4,4], E:[2,2,4]} },
+                { id: 'pll-nb', name: 'Nb Perm', group: 'Diagonal Swap', mainAlgo: "R' U R U' R' F' U' F R U R' F R' F' R U' R", guide: "Dua baris 1x3 utuh berseberangan (depan & belakang).", borders: {N:[5,3,3], S:[5,5,3], W:[4,4,2], E:[4,2,2]} },
+                { id: 'pll-ga', name: 'Ga Perm', group: 'G-Permutations', mainAlgo: "R2 U R' U R' U' R U' R2 U' D R' U R D'", guide: "Headlights di kiri, blok 1x2 di kanan depan.", borders: {N:[2,4,3], S:[4,3,3], W:[5,2,5], E:[4,5,2]} },
+                { id: 'pll-gb', name: 'Gb Perm', group: 'G-Permutations', mainAlgo: "R' U' R U D' R2 U R' U R U' R U' R2 D", guide: "Headlights di belakang, blok 1x2 di depan.", borders: {N:[3,2,4], S:[5,3,4], W:[2,4,2], E:[5,5,3]} },
+                { id: 'pll-gc', name: 'Gc Perm', group: 'G-Permutations', mainAlgo: "R2 U' R U' R U R' U R2 U D' R U' R' D", guide: "Headlights di kanan, blok 1x2 di kiri depan.", borders: {N:[2,3,3], S:[4,2,3], W:[5,4,5], E:[4,5,2]} },
+                { id: 'pll-gd', name: 'Gd Perm', group: 'G-Permutations', mainAlgo: "R U R' U' D R2 U' R U' R' U R' U R2 D'", guide: "Headlights di depan, blok 1x2 di belakang.", borders: {N:[4,2,5], S:[2,3,5], W:[3,5,3], E:[2,4,4]} }
+            ],
+            OLL: []
+        };
+
+        const oll2DConfig = [
+            { id: 1, name: 'OLL CROSS 1', group: 'Cross Cases', mainAlgo: "R U R' U (R U2 R')", top: [0,1,0,1,1,1,1,1,0], borders: {N:[1,0,0], S:[0,0,1], W:[0,0,0], E:[1,0,0]} },
+            { id: 2, name: 'OLL CROSS 2', group: 'Cross Cases', mainAlgo: " (R U2 R') U' R U' R'", top: [0,1,1,1,1,1,0,1,0], borders: {N:[0,0,0], S:[1,0,0], W:[1,0,0], E:[0,0,1]} },
+            { id: 3, name: 'OLL CROSS 3', group: 'Cross Cases', mainAlgo: "R U R' U (R U' R' U) R U2 R'", top: [0,1,0,1,1,1,0,1,0], borders: {N:[0,0,0], S:[0,0,0], W:[1,0,1], E:[1,0,1]} },
+            { id: 4, name: 'OLL CROSS 4', group: 'Cross Cases', mainAlgo: "R U2 (R2 U') (R2 U') R2 U2 R", top: [0,1,0,1,1,1,0,1,0], borders: {N:[0,0,1], S:[0,0,1], W:[1,0,1], E:[0,0,0]} },
+            { id: 5, name: 'OLL CROSS 5', group: 'Cross Cases', mainAlgo: "(R U R) D (R' U' R) D' R2", top: [0,1,0,1,1,1,1,1,1], borders: {N:[0,0,0], S:[0,0,0], W:[1,0,0], E:[1,0,0]} },
+            { id: 6, name: 'OLL CROSS 6', group: 'Cross Cases', mainAlgo: "R2 D' (R U' R') D (R U R)", top: [1,1,0,1,1,1,0,1,1], borders: {N:[0,0,1], S:[0,0,0], W:[0,0,1], E:[0,0,0]} },
+            { id: 7, name: 'OLL CROSS 7', group: 'Cross Cases', mainAlgo: "R2 D (R' U2 R) D' (R' U2 R')", top: [1,1,1,1,1,1,0,1,0], borders: {N:[0,0,0], S:[1,0,1], W:[0,0,0], E:[0,0,0]} },
+            { id: 8, name: 'OLL 8', group: 'Small Lightning Bolts', mainAlgo: "r' U' R U' R' U2 r", top: [1,0,0,1,1,0,0,1,0], borders: {N:[0,1,1], S:[1,0,1], W:[0,0,0], E:[0,1,0]} },
+            { id: 9, name: 'OLL 9', group: 'Fish Shapes', mainAlgo: "R U R' U' R' F R2 U R' U' F'", top: [0,0,1,0,1,0,1,1,0], borders: {N:[1,1,0], S:[0,0,1], W:[0,1,0], E:[0,1,1]} },
+            { id: 10, name: 'OLL 10', group: 'Fish Shapes', mainAlgo: "R U R' U R' F R F' R U2 R'", top: [1,0,0,0,1,0,0,1,1], borders: {N:[0,1,1], S:[1,0,0], W:[1,1,0], E:[0,1,0]} },
+            { id: 11, name: 'OLL 11', group: 'Small Lightning Bolts', mainAlgo: "r U R' U R U' R' U' r'", top: [0,1,0,0,1,1,1,0,0], borders: {N:[1,0,1], S:[0,1,1], W:[1,1,0], E:[0,0,1]} },
+            { id: 12, name: 'OLL 12', group: 'Small Lightning Bolts', mainAlgo: "F R U R' U' F' U F R U R' U' F'", top: [0,1,0,1,1,0,0,0,1], borders: {N:[1,0,1], S:[1,1,0], W:[0,0,1], E:[1,1,0]} },
+            { id: 13, name: 'OLL 13', group: 'Knight Move Shapes', mainAlgo: "r U' r' U' r U r' F R U R' U' F'", top: [1,0,0,0,1,1,0,1,0], borders: {N:[0,1,1], S:[1,0,1], W:[1,1,0], E:[0,0,0]} },
+            { id: 14, name: 'OLL 14', group: 'Knight Move Shapes', mainAlgo: "R' F R U R' F' R F U' F'", top: [0,0,1,1,1,0,0,1,0], borders: {N:[1,1,0], S:[1,0,1], W:[0,0,0], E:[1,1,0]} },
+            { id: 15, name: 'OLL 15', group: 'Knight Move Shapes', mainAlgo: "r' U' r R' U' R U r' U r", top: [0,1,0,0,1,1,0,0,1], borders: {N:[1,0,1], S:[1,1,0], W:[0,1,0], E:[0,0,0]} },
+            { id: 16, name: 'OLL 16', group: 'Knight Move Shapes', mainAlgo: "r U r' R U R' U' r U' r'", top: [0,1,0,1,1,0,1,0,0], borders: {N:[1,0,1], S:[0,1,1], W:[0,0,0], E:[0,1,0]} },
+            { id: 17, name: 'OLL 17', group: 'Dot Cases', mainAlgo: "F R U R' U' R3 F' r U R' U' r'", top: [0,0,1,0,1,0,1,0,0], borders: {N:[1,1,0], S:[0,1,1], W:[1,1,0], E:[0,1,1]} },
+            { id: 18, name: 'OLL 18', group: 'Dot Cases', mainAlgo: "r U R' U R U2 r' F R U R' U' F'", top: [0,1,0,0,1,0,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[1,1,1], E:[1,1,1]} },
+            { id: 19, name: 'OLL 19', group: 'Dot Cases', mainAlgo: "r' U2 R U R' U r F R U R' U' F'", top: [0,0,0,1,1,1,0,0,0], borders: {N:[1,1,1], S:[1,1,1], W:[1,0,1], E:[1,0,1]} },
+            { id: 20, name: 'OLL 20', group: 'Dot Cases', mainAlgo: "r U R' U' M' U R U' R' U' M", top: [0,1,0,1,1,1,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[1,0,1], E:[1,0,1]} },
+            { id: 21, name: 'OLL 21', group: 'Cross / H Shape', mainAlgo: "R U2 R' U' R U R' U' R U' R'", top: [0,1,0,1,1,1,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[1,0,1], E:[1,0,1]} },
+            { id: 22, name: 'OLL 22', group: 'Cross / Pi Shape', mainAlgo: "R U2 R2 U' R2 U' R2 U2 R", top: [0,1,0,1,1,1,0,1,0], borders: {N:[1,0,1], S:[0,0,0], W:[1,0,1], E:[0,0,0]} },
+            { id: 23, name: 'OLL 23', group: 'Cross / Headlights', mainAlgo: "R2 D' R U2 R' D R U2 R", top: [0,1,0,1,1,1,0,1,0], borders: {N:[0,0,0], S:[1,0,1], W:[1,0,1], E:[0,0,0]} },
+            { id: 24, name: 'OLL 24', group: 'Cross / Chameleon', mainAlgo: "r U R' U' r' F R F'", top: [0,1,0,1,1,1,0,1,0], borders: {N:[1,0,0], S:[1,0,0], W:[0,0,1], E:[0,0,1]} },
+            { id: 25, name: 'OLL 25', group: 'Cross / Bowtie', mainAlgo: "F' r U R' U' r' F R", top: [1,1,0,1,1,1,0,1,0], borders: {N:[0,0,1], S:[1,0,0], W:[0,0,1], E:[0,0,0]} },
+            { id: 26, name: 'OLL 26', group: 'Anti-Sune', mainAlgo: "R U2 R' U' R U' R'", top: [0,1,1,1,1,1,0,1,0], borders: {N:[1,0,0], S:[1,0,1], W:[1,0,0], E:[0,0,1]} },
+            { id: 27, name: 'OLL 27', group: 'Sune', mainAlgo: "R U R' U R U2 R'", top: [1,1,0,1,1,1,0,1,0], borders: {N:[0,0,1], S:[1,0,1], W:[0,0,1], E:[1,0,0]} },
+            { id: 28, name: 'OLL 28', group: 'Corners Solved', mainAlgo: "r U R' U' r' R U R' U' R'", top: [1,0,1,0,1,0,1,0,1], borders: {N:[0,1,0], S:[0,1,0], W:[0,1,0], E:[0,1,0]} },
+            { id: 29, name: 'OLL 29', group: 'Awkward Shapes', mainAlgo: "M U R U R' U' R' F R F' M'", top: [1,1,0,0,1,1,1,0,0], borders: {N:[0,0,1], S:[0,1,1], W:[1,1,0], E:[1,0,1]} },
+            { id: 30, name: 'OLL 30', group: 'Awkward Shapes', mainAlgo: "F U R U2 R' U' R U R' F'", top: [0,1,1,1,1,0,0,0,1], borders: {N:[1,0,0], S:[1,1,0], W:[1,0,1], E:[0,1,1]} },
+            { id: 31, name: 'OLL 31', group: 'P Shapes', mainAlgo: "R' U' F U R U' R' F' R", top: [1,1,0,1,1,0,1,1,0], borders: {N:[0,0,1], S:[0,0,1], W:[0,0,0], E:[1,1,1]} },
+            { id: 32, name: 'OLL 32', group: 'P Shapes', mainAlgo: "R U B' U' R' U R B R'", top: [0,1,1,0,1,1,0,1,1], borders: {N:[1,0,0], S:[1,0,0], W:[1,1,1], E:[0,0,0]} },
+            { id: 33, name: 'OLL 33', group: 'T Shapes', mainAlgo: "R U R' U' R' F R F'", top: [0,1,0,1,1,1,1,1,1], borders: {N:[1,0,1], S:[0,0,0], W:[0,0,0], E:[0,0,0]} },
+            { id: 34, name: 'OLL 34', group: 'C Shapes', mainAlgo: "R U R2 U' R' F R U R U' F'", top: [1,1,1,1,1,0,1,0,1], borders: {N:[0,0,0], S:[0,1,0], W:[0,0,0], E:[1,1,1]} },
+            { id: 35, name: 'OLL 35', group: 'Fish Shapes', mainAlgo: "R U2 R2 F R F' R U2 R'", top: [1,1,0,1,1,0,1,0,1], borders: {N:[0,0,1], S:[0,1,0], W:[0,0,0], E:[1,1,0]} },
+            { id: 36, name: 'OLL 36', group: 'Fish Shapes', mainAlgo: "R' U' R U' R' U R U R f' U' f", top: [0,1,1,0,1,1,1,0,1], borders: {N:[1,0,0], S:[0,1,0], W:[1,1,0], E:[0,0,0]} },
+            { id: 37, name: 'OLL 37', group: 'Fish Shapes', mainAlgo: "F R U' R' U' R U R' F'", top: [1,1,1,0,1,1,0,0,1], borders: {N:[0,0,0], S:[1,1,0], W:[0,1,1], E:[1,0,0]} },
+            { id: 38, name: 'OLL 38', group: 'W Shapes', mainAlgo: "R U R' U R U' R' U' R' F R F'", top: [1,1,0,0,1,1,0,1,1], borders: {N:[0,0,1], S:[1,0,0], W:[1,1,0], E:[0,0,1]} },
+            { id: 39, name: 'OLL 39', group: 'W Shapes', mainAlgo: "L' U' L U' L' U L U L F' L' F", top: [0,1,1,1,1,0,1,1,0], borders: {N:[1,0,0], S:[0,0,1], W:[0,0,1], E:[1,1,0]} },
+            { id: 40, name: 'OLL 40', group: 'L Shapes', mainAlgo: "R' F R U R' U' F' U R", top: [1,1,0,0,1,1,1,1,0], borders: {N:[0,0,1], S:[0,0,1], W:[1,1,0], E:[1,0,1]} },
+            { id: 41, name: 'OLL 41', group: 'Awkward Shapes', mainAlgo: "R U R' U R U2 R' F R U R' U' F'", top: [0,1,1,1,1,0,0,1,1], borders: {N:[1,0,0], S:[1,0,0], W:[0,1,1], E:[1,1,0]} },
+            { id: 42, name: 'OLL 42', group: 'Awkward Shapes', mainAlgo: "R' U' R U' R' U2 R F R U R' U' F'", top: [1,1,0,0,1,1,1,1,0], borders: {N:[0,0,1], S:[0,0,1], W:[1,1,0], E:[0,1,1]} },
+            { id: 43, name: 'OLL 43', group: 'P Shapes', mainAlgo: "f' L' U' L U f", top: [0,1,1,0,1,1,0,1,0], borders: {N:[1,0,0], S:[1,0,1], W:[1,1,1], E:[0,0,0]} },
+            { id: 44, name: 'OLL 44', group: 'P Shapes', mainAlgo: "f R U R' U' f'", top: [1,1,0,1,1,0,0,1,0], borders: {N:[0,0,1], S:[1,0,1], W:[0,0,0], E:[1,1,1]} },
+            { id: 45, name: 'OLL 45', group: 'C Shapes', mainAlgo: "F R U R' U' F'", top: [0,1,0,1,1,1,1,0,1], borders: {N:[1,0,1], S:[0,1,0], W:[0,0,0], E:[0,0,0]} },
+            { id: 46, name: 'OLL 46', group: 'C Shapes', mainAlgo: "R' U' R' F R F' U R", top: [1,1,1,0,1,0,1,0,1], borders: {N:[0,0,0], S:[0,1,0], W:[1,1,0], E:[0,1,1]} },
+            { id: 47, name: 'OLL 47', group: 'Small Lightning Bolts', mainAlgo: "F' L' U' L U L' U' L U F", top: [0,1,0,1,1,0,0,1,1], borders: {N:[1,0,1], S:[1,0,0], W:[0,0,1], E:[1,1,0]} },
+            { id: 48, name: 'OLL 48', group: 'Small Lightning Bolts', mainAlgo: "F R U R' U' R U R' U' F'", top: [0,1,0,0,1,1,1,1,0], borders: {N:[1,0,1], S:[0,0,1], W:[1,1,0], E:[0,0,1]} },
+            { id: 49, name: 'OLL 49', group: 'L Shapes', mainAlgo: "r U' r2 U r2 U r2 U' r", top: [0,1,0,1,1,0,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[0,0,1], E:[1,1,1]} },
+            { id: 50, name: 'OLL 50', group: 'L Shapes', mainAlgo: "r' U r2 U' r2 U' r2 U r'", top: [0,1,0,0,1,1,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[1,1,1], E:[1,0,0]} },
+            { id: 51, name: 'OLL 51', group: 'I Shapes', mainAlgo: "f R U R' U' R U R' U' f'", top: [0,1,0,0,1,0,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[1,1,1], E:[1,1,1]} },
+            { id: 52, name: 'OLL 52', group: 'I Shapes', mainAlgo: "R U R' U R U' B U' B' R'", top: [0,1,0,0,1,0,1,0,1], borders: {N:[1,0,1], S:[0,1,0], W:[1,1,0], E:[1,1,0]} },
+            { id: 53, name: 'OLL 53', group: 'I Shapes', mainAlgo: "r' U' r R' U' R U r' U r", top: [1,1,0,0,1,0,0,1,1], borders: {N:[0,0,1], S:[1,0,0], W:[1,1,1], E:[1,0,0]} },
+            { id: 54, name: 'OLL 54', group: 'I Shapes', mainAlgo: "r U R' U R U' R' U R U2 r'", top: [0,1,1,0,1,0,1,1,0], borders: {N:[1,0,0], S:[0,0,1], W:[1,0,0], E:[1,1,1]} },
+            { id: 55, name: 'OLL 55', group: 'I Shapes', mainAlgo: "R' U2 R2 U R' U R U2 R' F R F'", top: [0,1,0,1,1,1,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[0,0,0], E:[0,0,0]} },
+            { id: 56, name: 'OLL 56', group: 'I Shapes', mainAlgo: "r U r' U R U' R' U R U' R' r U' r'", top: [1,1,1,0,1,0,1,1,1], borders: {N:[0,0,0], S:[0,0,0], W:[1,1,1], E:[1,1,1]} },
+            { id: 57, name: 'OLL 57', group: 'H-OLL / Stealth', mainAlgo: "R U R' U' M' U R U' r'", top: [0,1,0,1,1,1,0,1,0], borders: {N:[1,0,1], S:[1,0,1], W:[1,0,1], E:[1,0,1]} }
+        ];
+
+        ALGORITHMS.OLL = oll2DConfig.map(item => ({
+            id: `oll-${item.id}`,
+            name: item.name,
+            group: item.group,
+            mainAlgo: item.mainAlgo,
+            guide: "Diagram 2D flat WCA standard.",
+            top: item.top,
+            borders: item.borders,
+            isOll: true
+        }));
+
+        function switchAlgoCategory(cat) {
+            state.algoCategory = cat;
+            const tabPLLBtn = document.getElementById('tabPLLBtn');
+            const tabOLLBtn = document.getElementById('tabOLLBtn');
+            if (cat === 'PLL') {
+                tabPLLBtn.className = "px-3 py-1 rounded-lg text-xs font-bold transition bg-brand-500 text-white shadow";
+                tabOLLBtn.className = "px-3 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200 transition";
+            } else {
+                tabOLLBtn.className = "px-3 py-1 rounded-lg text-xs font-bold transition bg-brand-500 text-white shadow";
+                tabPLLBtn.className = "px-3 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200 transition";
+            }
+            renderAlgorithmCards();
+        }
+
+        function filterAlgorithms() {
+            renderAlgorithmCards();
+        }
+
+        function draw2DCube(canvasId, algoData) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const parent = canvas.parentElement;
+
+            const w = parent.clientWidth || 280;
+            const h = parent.clientHeight || 160;
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, w, h);
+
+            const size = Math.min(w, h) * 0.55;
+            const startX = (w - size) / 2;
+            const startY = (h - size) / 2;
+            const cell = size / 3;
+            const borderWidth = cell * 0.28;
+
+            const COLOR_MAP = { 1: '#FACC15', 2: '#FB923C', 3: '#22C55E', 4: '#EF4444', 5: '#3B82F6' };
+            const OLL_MAP = { 0: '#1E293B', 1: '#FACC15' };
+
+            const borders = algoData.borders || { N:[3,3,3], S:[4,4,4], W:[2,2,2], E:[5,5,5] };
+
+            ['N', 'S', 'W', 'E'].forEach(dir => {
+                const arr = borders[dir] || [1,1,1];
+                for (let i = 0; i < 3; i++) {
+                    let color = algoData.isOll ? (arr[i] === 1 ? '#FACC15' : '#1E293B') : COLOR_MAP[arr[i]];
+                    ctx.fillStyle = color || '#FACC15';
+
+                    if (dir === 'N') ctx.fillRect(startX + i * cell + 2, startY - borderWidth - 3, cell - 4, borderWidth);
+                    else if (dir === 'S') ctx.fillRect(startX + i * cell + 2, startY + size + 3, cell - 4, borderWidth);
+                    else if (dir === 'W') ctx.fillRect(startX - borderWidth - 3, startY + i * cell + 2, borderWidth, cell - 4);
+                    else if (dir === 'E') ctx.fillRect(startX + size + 3, startY + i * cell + 2, borderWidth, cell - 4);
+                }
+            });
+
+            const topStickers = algoData.top || Array(9).fill(1);
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const idx = r * 3 + c;
+                    ctx.fillStyle = algoData.isOll ? OLL_MAP[topStickers[idx]] : '#FACC15';
+                    ctx.fillRect(startX + c * cell + 1.5, startY + r * cell + 1.5, cell - 3, cell - 3);
+                    ctx.strokeStyle = '#020617';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(startX + c * cell + 1.5, startY + r * cell + 1.5, cell - 3, cell - 3);
+                }
+            }
+
+            ctx.strokeStyle = '#020617';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(startX, startY, size, size);
+        }
+
+        function renderAlgorithmCards() {
+            const algoGrid = document.getElementById('algoGrid');
+            const searchVal = document.getElementById('algoSearch').value.toLowerCase();
+            const list = ALGORITHMS[state.algoCategory] || [];
+
+            const filtered = list.filter(item => 
+                item.name.toLowerCase().includes(searchVal) || 
+                item.mainAlgo.toLowerCase().includes(searchVal) || 
+                item.group.toLowerCase().includes(searchVal)
+            );
+
+            if (filtered.length === 0) {
+                algoGrid.innerHTML = `
+                    <div class="col-span-full text-center text-slate-500 py-8">
+                        <i class="fa-solid fa-folder-open text-2xl mb-1"></i>
+                        <p class="text-xs">Kasus tidak ditemukan.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            algoGrid.innerHTML = filtered.map(algo => `
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between shadow-xl transition">
+                    <div>
+                        <div class="flex items-start justify-between mb-1.5">
+                            <div>
+                                <span class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-brand-400 border border-slate-700/50">
+                                    ${algo.group}
+                                </span>
+                                <h3 class="text-sm font-bold text-slate-100 mt-1">${algo.name}</h3>
+                            </div>
+                            <button onclick="copyAlgo('${algo.mainAlgo.replace(/'/g, "\\'")}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] transition flex items-center space-x-1">
+                                <i class="fa-solid fa-copy text-[9px]"></i>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+
+                        <div class="w-full h-40 bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center my-2">
+                            <canvas id="canvas2d_${algo.id}" class="w-full h-full block"></canvas>
+                        </div>
+
+                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs font-mono font-bold text-amber-300 tracking-wide select-all">
+                            ${algo.mainAlgo}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            setTimeout(() => {
+                filtered.forEach(algo => draw2DCube(`canvas2d_${algo.id}`, algo));
+            }, 30);
+        }
+
+        function copyAlgo(algoText) {
+            const textarea = document.createElement('textarea');
+            textarea.value = algoText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast('Rumus tersalin!');
+        }
+
+        function init() {
+            loadSolvesFromStorage();
+            init3DVisualizer();
+            generateScramble(state.event);
+            updateStats();
+            renderHistory();
+            setupTouchEvents();
+
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+
+            document.getElementById('nextScrambleBtn').addEventListener('click', () => generateScramble(state.event));
+            document.getElementById('copyScrambleBtn').addEventListener('click', () => {
+                const textarea = document.createElement('textarea');
+                textarea.value = state.currentScramble;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast('Scramble copied!');
+            });
+
+            eventSelect.addEventListener('change', (e) => {
+                state.event = e.target.value;
+                generateScramble(state.event);
+                updateStats();
+                renderHistory();
+                updateLastSolveControlsUI();
+            });
+
+            inspectionToggle.addEventListener('change', (e) => { state.inspectionEnabled = e.target.checked; });
+            bldToggle.addEventListener('change', (e) => { state.bldMode = e.target.checked; });
+
+            document.getElementById('clearSessionBtn').addEventListener('click', openConfirmModal);
+            cancelModalBtn.addEventListener('click', closeConfirmModal);
+            confirmModalBtn.addEventListener('click', () => {
+                state.solves = state.solves.filter(s => s.event !== state.event);
+                saveSolvesToStorage();
+                updateStats();
+                renderHistory();
+                updateLastSolveControlsUI();
+                closeConfirmModal();
+                showToast('Session cleared');
+            });
+
+            btnPenaltyPlus2.addEventListener('click', () => {
+                const currentSolves = state.solves.filter(s => s.event === state.event);
+                if (currentSolves.length > 0) togglePenalty(currentSolves[0].id, 2);
+            });
+
+            btnPenaltyDNF.addEventListener('click', () => {
+                const currentSolves = state.solves.filter(s => s.event === state.event);
+                if (currentSolves.length > 0) togglePenalty(currentSolves[0].id, 'DNF');
+            });
+
+            btnDeleteLast.addEventListener('click', () => {
+                const currentSolves = state.solves.filter(s => s.event === state.event);
+                if (currentSolves.length > 0) deleteSolve(currentSolves[0].id);
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
